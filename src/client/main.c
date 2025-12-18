@@ -19,7 +19,9 @@ volatile int server_count = 0;
 bool connected_to_server = false;
 bool scan_in_progress = false;
 int scan_render_cycle = 0;
+int ui_render_cycle = 0;
 struct timeval scan_last_time;
+struct timeval ui_last_time;
 volatile bool beacon_thread_active = false;
 
 int rows, cols;
@@ -44,8 +46,8 @@ int main(void)
 	printf("\033[?1003h\n");
 
 	pthread_t beacon_thread = 0;
-	struct timeval anim_last_time;
-	gettimeofday(&anim_last_time, NULL);
+	gettimeofday(&scan_last_time, NULL);
+	gettimeofday(&ui_last_time, NULL);
 
 	while (1) {
 		getmaxyx(stdscr, rows, cols);
@@ -73,10 +75,12 @@ int main(void)
 		draw_background();
 
 		if (term_too_small) {
-			draw_btop_box(rows/2-2, cols/2-10, 4, 20, "ERROR");
+			draw_btop_box(rows/2-4, cols/2-10, 8, 20, "ERROR");
 			attron(COLOR_PAIR(CP_WARN) | A_BOLD);
-			mvprintw(rows/2, cols/2-7, "SIZE ERROR");
+			mvprintw(rows/2+3, cols/2-7, "SIZE ERROR");
 			attroff(COLOR_PAIR(CP_WARN) | A_BOLD);
+			
+			draw_spinner(rows/2-2, cols/2-4);
 		} else {
 			draw_btop_box(target_row_start, target_cols_start, box_h, box_w, 
 				      connected_to_server ? " ACTIVE SESSION " : " NETWORK OVERVIEW ");
@@ -87,11 +91,13 @@ int main(void)
 					draw_button_btop(target_row_start, target_cols_start + box_w - 18, 16, "REFRESH", false);
 				} else {
 					attron(COLOR_PAIR(CP_DEFAULT) | A_BOLD);
-					mvprintw(rows/2 - 2, cols/2 - 4, "SCANNING");
+					mvprintw(rows/2 - 4, cols/2 - 4, "SCANNING");
 					attroff(COLOR_PAIR(CP_DEFAULT) | A_BOLD);
 					
+					draw_spinner(rows/2 - 2, cols/2 - 4);
+					
 					int pct = (scan_render_cycle * 100) / 20;
-					draw_meter(rows/2, cols/2 - 20, 40, pct);
+					draw_meter(rows/2 + 3, cols/2 - 20, 40, pct);
 				}
 			} else {
 				attron(COLOR_PAIR(CP_DEFAULT));
@@ -118,6 +124,12 @@ int main(void)
 
 		struct timeval now;
 		gettimeofday(&now, NULL);
+
+		long ui_ms = (now.tv_sec - ui_last_time.tv_sec) * 1000 + (now.tv_usec - ui_last_time.tv_usec) / 1000;
+		if (ui_ms > 80) {
+			ui_render_cycle++;
+			ui_last_time = now;
+		}
 
 		if (scan_in_progress) {
 			long ms = (now.tv_sec - scan_last_time.tv_sec) * 1000 + (now.tv_usec - scan_last_time.tv_usec) / 1000;

@@ -25,6 +25,7 @@ extern pthread_mutex_t list_mutex;
 extern bool connected_to_server;
 extern bool scan_in_progress;
 extern int scan_render_cycle;
+extern int ui_render_cycle; 
 extern struct timeval scan_last_time;
 extern volatile bool beacon_thread_active;
 

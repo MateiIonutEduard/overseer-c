@@ -9,6 +9,22 @@
 #include "../globals.h"
 #include "../system/network.h"
 
+static const char *spinner_frames[25][4] = {
+	{"┌──     ", "        ", "        ", "        "}, {" ───    ", "        ", "        ", "        "},
+	{"  ───   ", "        ", "        ", "        "}, {"   ───  ", "        ", "        ", "        "},
+	{"    ─── ", "        ", "        ", "        "}, {"     ──┐", "        ", "        ", "        "},
+	{"      ─┐", "       ╵", "        ", "        "}, {"       ┐", "       │", "        ", "        "},
+	{"        ", "       │", "       ╵", "        "}, {"        ", "       ╷", "       │", "        "},
+	{"        ", "        ", "       │", "       ╵"}, {"        ", "        ", "       ╷", "       ┘"},
+	{"        ", "        ", "        ", "      ─┘"}, {"        ", "        ", "        ", "     ──┘"},
+	{"        ", "        ", "        ", "    ─── "}, {"        ", "        ", "        ", "   ───  "},
+	{"        ", "        ", "        ", "  ───   "}, {"        ", "        ", "        ", " ───    "},
+	{"        ", "        ", "        ", "└──     "}, {"        ", "        ", "        ", "╷       "},
+	{"        ", "        ", "│       ", "└       "}, {"        ", "╷       ", "│       ", "        "},
+	{"        ", "│       ", "╵       ", "        "}, {"╷       ", "│       ", "        ", "        "},
+	{"┌       ", "╵       ", "        ", "        "}
+};
+
 void init_colors(void)
 {
 	start_color();
@@ -24,12 +40,28 @@ void init_colors(void)
 	init_pair(CP_METER_OFF, COLOR_BLACK, -1);
 }
 
+void draw_spinner(int y, int x)
+{
+	int frame = ui_render_cycle % 25;
+	attron(COLOR_PAIR(CP_ACCENT) | A_BOLD);
+	for (int i = 0; i < 4; i++) {
+		mvprintw(y + i, x, "%s", spinner_frames[frame][i]);
+	}
+	attroff(COLOR_PAIR(CP_ACCENT) | A_BOLD);
+}
+
 void draw_background(void)
 {
 	attron(COLOR_PAIR(CP_DIM) | A_BOLD);
 	for (int y = 0; y < rows; y += 2) {
 		for (int x = 0; x < cols; x += 4) {
-			mvaddstr(y, x, "+");
+			if ((x + y + ui_render_cycle) % 10 == 0) {
+				attron(A_REVERSE);
+				mvaddstr(y, x, "+");
+				attroff(A_REVERSE);
+			} else {
+				mvaddstr(y, x, "+");
+			}
 		}
 	}
 	attroff(COLOR_PAIR(CP_DIM) | A_BOLD);
@@ -47,7 +79,10 @@ void draw_background(void)
 
 	attron(COLOR_PAIR(CP_FRAME) | A_DIM);
 	mvhline(rows - 1, 0, ACS_HLINE, cols);
-	mvprintw(rows - 1, 2, " CPU: 1%%  MEM: 124MB  NET: IDLE ");
+	
+	int wave = ui_render_cycle % 3;
+	const char *dots = (wave == 0) ? ".  " : (wave == 1) ? " . " : "  .";
+	mvprintw(rows - 1, 2, " CPU: 1%% %s MEM: 124MB %s NET: IDLE ", dots, dots);
 	attroff(COLOR_PAIR(CP_FRAME) | A_DIM);
 }
 
@@ -207,13 +242,14 @@ void popup_input_btop(void)
 
 void on_upload_progress(size_t sent, size_t total, double speed_mbps)
 {
-	int w = 50, h = 10;
+	int w = 60, h = 12;
 	int y = rows / 2 - h / 2;
 	int x = cols / 2 - w / 2;
 
 	int pct = (int)((sent * 100) / total);
 	
 	attron(COLOR_PAIR(CP_DEFAULT));
+	for(int i=0; i<h; i++) mvhline(y+i, x, ' ', w);
 	draw_btop_box(y, x, h, w, "UPLOADING FILE");
 	
 	mvprintw(y + 2, x + 2, "Transferred: %zu / %zu bytes", sent, total);
@@ -221,8 +257,11 @@ void on_upload_progress(size_t sent, size_t total, double speed_mbps)
 
 	draw_meter(y + 5, x + 2, w - 4, pct);
 	
+	int spinner_x = x + w / 2 - 4;
+	draw_spinner(y + 7, spinner_x);
+
 	attron(A_BOLD);
-	mvprintw(y + 7, x + w / 2 - 3, " %d%% ", pct);
+	mvprintw(y + 7, x + 2, " %d%% COMPLETE ", pct);
 	attroff(A_BOLD);
 	
 	attroff(COLOR_PAIR(CP_DEFAULT));
@@ -258,6 +297,7 @@ void popup_file_upload(void)
 	if (strlen(buf) > 0) {
 		int res = send_file_to_server(current_server.ip, current_server.port, buf, on_upload_progress);
 		
+		attron(COLOR_PAIR(CP_DEFAULT));
 		for(int i=0; i<h; i++) mvhline(y+i, x, ' ', w);
 		draw_btop_box(y, x, h, w, "STATUS");
 		
@@ -309,24 +349,28 @@ void handle_input_btop(pthread_t *thread_ptr)
 			    last_click_x < target_cols_end) {
 				
 				current_server = server_list[i];
-				int w = 34, h = 5;
+				int w = 34, h = 8;
 				int cy = rows / 2 - h / 2, cx = cols / 2 - w / 2;
 				
 				attron(COLOR_PAIR(CP_DEFAULT));
 				for(int k=0; k<h; k++) mvhline(cy+k, cx, ' ', w);
 				draw_btop_box(cy, cx, h, w, "HANDSHAKE");
 				
+				draw_spinner(cy + 2, cx + w/2 - 4);
+
 				attron(A_BLINK);
-				mvprintw(cy + 2, cx + 2, " ESTABLISHING LINK... ");
+				mvprintw(cy + 6, cx + 2, " ESTABLISHING LINK... ");
 				attroff(A_BLINK);
 				attroff(COLOR_PAIR(CP_DEFAULT));
 				refresh();
+				
+				usleep(500000); 
 
 				if (connect_handshake(current_server.ip, current_server.port) == 0) {
 					connected_to_server = true;
 				} else {
 					attron(COLOR_PAIR(CP_WARN) | A_BOLD);
-					mvprintw(cy + 2, cx + 2, " CONNECTION REFUSED   ");
+					mvprintw(cy + 6, cx + 2, " CONNECTION REFUSED   ");
 					attroff(COLOR_PAIR(CP_WARN) | A_BOLD);
 					refresh();
 					usleep(500000);

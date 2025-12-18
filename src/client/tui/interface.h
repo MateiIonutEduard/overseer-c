@@ -15,6 +15,7 @@
 
 void init_colors(void);
 void draw_background(void);
+void draw_spinner(int y, int x);
 void draw_btop_box(int y, int x, int h, int w, const char *title);
 void draw_meter(int y, int x, int w, int percent);
 void draw_button_btop(int y, int x, int w, const char *text, bool active);
