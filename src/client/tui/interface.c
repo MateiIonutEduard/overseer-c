@@ -213,14 +213,16 @@ void draw_server_table(void)
 		if (hover) {
 			attron(COLOR_PAIR(CP_INVERT));
 			mvhline(row_y, target_cols_start + 1, ' ', target_cols_end - target_cols_start - 2);
-			mvprintw(row_y, target_cols_start + 2, " > %04d   %-20s %-8d %-10s ",
-				 server_list[i].server_id, server_list[i].ip, server_list[i].port, "ONLINE");
+			mvprintw(row_y, target_cols_start + 2, " > %04d   ", server_list[i].server_id);
+			printw("%-20s", server_list[i].ip);
+			printw(" %-8d %-10s ", server_list[i].port, "ONLINE");
 			attroff(COLOR_PAIR(CP_INVERT));
 		} else {
 			attron(COLOR_PAIR(CP_DEFAULT));
 			if (i % 2 != 0) attron(A_DIM);
-			mvprintw(row_y, target_cols_start + 2, "   %04d   %-20s %-8d %-10s ",
-				 server_list[i].server_id, server_list[i].ip, server_list[i].port, "ONLINE");
+			mvprintw(row_y, target_cols_start + 2, "   %04d   ", server_list[i].server_id);
+			printw("%-20s", server_list[i].ip);
+			printw(" %-8d %-10s ", server_list[i].port, "ONLINE");
 			if (i % 2 != 0) attroff(A_DIM);
 			attroff(COLOR_PAIR(CP_DEFAULT));
 		}
