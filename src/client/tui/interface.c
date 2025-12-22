@@ -10,6 +10,12 @@
 #include "../globals.h"
 #include "../system/api.h"
 
+#define INPUT_BUFFER_SIZE 256
+#define FILEPATH_BUFFER_SIZE 512
+
+static int safe_getnstr(char *buf, size_t buf_size, int max_chars);
+static void safe_popup_dimensions(int *w, int *h, int *x, int *y);
+
 static const char *spinner_frames[25][4] = {
 	{"┌──     ", "        ", "        ", "        "}, {" ───    ", "        ", "        ", "        "},
 	{"  ───   ", "        ", "        ", "        "}, {"   ───  ", "        ", "        ", "        "},
@@ -206,41 +212,79 @@ void draw_server_table(void)
 
 void popup_input_btop(void)
 {
-	int w = 50, h = 8;
-	int y = rows / 2 - h / 2;
-	int x = cols / 2 - w / 2;
+    int w = 50, h = 8;
+    int y = rows / 2 - h / 2;
+    int x = cols / 2 - w / 2;
+    
+    safe_popup_dimensions(&w, &h, &x, &y);
+    attron(COLOR_PAIR(CP_DEFAULT));
 
-	attron(COLOR_PAIR(CP_DEFAULT));
-	for(int i=0; i<h; i++) mvhline(y+i, x, ' ', w);
-	draw_btop_box(y, x, h, w, "SECURE TRANSMISSION");
+    for(int i = 0; i < h; i++)
+        mvhline(y + i, x, ' ', w);
+    
+    draw_btop_box(y, x, h, w, "SECURE TRANSMISSION");
+    mvprintw(y + 2, x + 2, "ENTER PAYLOAD:");
+    
+    attron(A_REVERSE);
+    mvhline(y + 4, x + 2, ' ', w - 4);
+    attroff(A_REVERSE);
 
-	mvprintw(y + 2, x + 2, "ENTER PAYLOAD:");
+    echo();
+    curs_set(1);
+    
+    char buf[INPUT_BUFFER_SIZE] = {0};
+    move(y + 4, x + 2);
+    timeout(-1);
+
+    int max_visible = w - 4 - 1;
+    if (max_visible < 0) max_visible = 0;
+
+    safe_getnstr(buf, sizeof(buf), max_visible);
+    timeout(10); noecho(); curs_set(0);
+
+    if (strlen(buf) > 0) {
+        attron(COLOR_PAIR(CP_INVERT) | A_BLINK);
+        mvprintw(y + 6, x + w / 2 - 5, " SENDING ");
+
+        attroff(COLOR_PAIR(CP_INVERT) | A_BLINK);
+        refresh();
+        
+        core_send_message(current_server.ip, current_server.port, buf);
+        usleep(300000);
+    }
+    
+    attroff(COLOR_PAIR(CP_DEFAULT));
+}
+
+int safe_getnstr(char *buf, size_t buf_size, int max_chars) {
+    if(buf == NULL) 
+		return -2;
 	
-	attron(A_REVERSE);
-	mvhline(y + 4, x + 2, ' ', w - 4);
-	attroff(A_REVERSE);
-
-	echo();
-	curs_set(1);
-	char buf[128] = {0};
-	move(y + 4, x + 2);
-	timeout(-1);
-	getnstr(buf, w - 5);
-	timeout(10);
-	noecho();
-	curs_set(0);
-
-	if (strlen(buf) > 0) {
-		attron(COLOR_PAIR(CP_INVERT) | A_BLINK);
-		mvprintw(y + 6, x + w / 2 - 5, " SENDING ");
-		attroff(COLOR_PAIR(CP_INVERT) | A_BLINK);
-		refresh();
+    int limit = (max_chars < (int)buf_size - 1) ? 
+		max_chars : (int)buf_size - 1;
 		
-		core_send_message(current_server.ip, current_server.port, buf);
-		
-		usleep(300000);
-	}
-	attroff(COLOR_PAIR(CP_DEFAULT));
+    if (limit <= 0) return -1;
+    getnstr(buf, limit);
+	
+    buf[buf_size - 1] = '\0';
+    return 0;
+}
+
+void safe_popup_dimensions(int* w, int* h, int* x, int* y) {
+    *w = (*w < 30) ? 30 : *w;
+    *h = (*h < 6) ? 6 : *h;
+
+    if (*w > cols - 4) *w = cols - 4;
+    if (*h > rows - 4) *h = rows - 4;
+
+    *y = (rows - *h) / 2;
+    *x = (cols - *w) / 2;
+    
+    if (*y < 0) *y = 0;
+    if (*x < 0) *x = 0;
+
+    if (*y + *h > rows) *y = rows - *h;
+    if (*x + *w > cols) *x = cols - *w;
 }
 
 void on_upload_progress(size_t sent, size_t total, double speed_mbps)
@@ -273,50 +317,62 @@ void on_upload_progress(size_t sent, size_t total, double speed_mbps)
 
 void popup_file_upload(void)
 {
-	int w = 50, h = 8;
-	int y = rows / 2 - h / 2;
-	int x = cols / 2 - w / 2;
+    int w = 50, h = 8;
+    int y = rows / 2 - h / 2;
+    int x = cols / 2 - w / 2;
 
-	attron(COLOR_PAIR(CP_DEFAULT));
-	for(int i=0; i<h; i++) mvhline(y+i, x, ' ', w);
-	draw_btop_box(y, x, h, w, "FILE UPLOAD");
+    safe_popup_dimensions(&w, &h, &x, &y);
+    attron(COLOR_PAIR(CP_DEFAULT));
+    
+    for(int i = 0; i < h; i++)
+        mvhline(y + i, x, ' ', w);
+    
+    draw_btop_box(y, x, h, w, "FILE UPLOAD");
+    mvprintw(y + 2, x + 2, "FILE PATH:");
+    
+    attron(A_REVERSE);
+    mvhline(y + 4, x + 2, ' ', w - 4);
+    attroff(A_REVERSE);
 
-	mvprintw(y + 2, x + 2, "FILE PATH:");
-	
-	attron(A_REVERSE);
-	mvhline(y + 4, x + 2, ' ', w - 4);
-	attroff(A_REVERSE);
+    echo();
+    curs_set(1);
+    
+    char buf[FILEPATH_BUFFER_SIZE] = {0};
+    move(y + 4, x + 2);
+    timeout(-1);
 
-	echo();
-	curs_set(1);
-	char buf[256] = {0};
-	move(y + 4, x + 2);
-	timeout(-1);
-	getnstr(buf, w - 5);
-	timeout(10);
-	noecho();
-	curs_set(0);
+    int max_visible = w - 4 - 1;
+    if (max_visible < 0) max_visible = 0;
+    safe_getnstr(buf, sizeof(buf), max_visible);
 
-	if (strlen(buf) > 0) {
-		int res = core_upload_file(current_server.ip, current_server.port, buf, on_upload_progress);
-		
-		attron(COLOR_PAIR(CP_DEFAULT));
-		for(int i=0; i<h; i++) mvhline(y+i, x, ' ', w);
-		draw_btop_box(y, x, h, w, "STATUS");
-		
-		if (res == 0) {
-			attron(COLOR_PAIR(CP_INVERT));
-			mvprintw(y+3, x+w/2-8, " UPLOAD COMPLETE ");
-			attroff(COLOR_PAIR(CP_INVERT));
-		} else {
-			attron(COLOR_PAIR(CP_WARN) | A_BOLD);
-			mvprintw(y+3, x+w/2-6, " UPLOAD FAILED ");
-			attroff(COLOR_PAIR(CP_WARN) | A_BOLD);
-		}
-		refresh();
-		usleep(1000000);
-	}
-	attroff(COLOR_PAIR(CP_DEFAULT));
+    timeout(10);
+    noecho();
+    curs_set(0);
+
+    if (strlen(buf) > 0) {
+        int res = core_upload_file(current_server.ip, current_server.port, buf, on_upload_progress);
+        attron(COLOR_PAIR(CP_DEFAULT));
+
+        for(int i = 0; i < h; i++)
+            mvhline(y + i, x, ' ', w);
+        
+        draw_btop_box(y, x, h, w, "STATUS");
+        
+        if (res == 0) {
+            attron(COLOR_PAIR(CP_INVERT));
+            mvprintw(y + 3, x + w / 2 - 8, " UPLOAD COMPLETE ");
+            attroff(COLOR_PAIR(CP_INVERT));
+        } else {
+            attron(COLOR_PAIR(CP_WARN) | A_BOLD);
+            mvprintw(y + 3, x + w / 2 - 6, " UPLOAD FAILED ");
+            attroff(COLOR_PAIR(CP_WARN) | A_BOLD);
+        }
+        
+        refresh();
+        usleep(1000000);
+    }
+    
+    attroff(COLOR_PAIR(CP_DEFAULT));
 }
 
 void handle_input_btop(pthread_t *thread_ptr)
