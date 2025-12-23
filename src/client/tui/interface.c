@@ -193,40 +193,53 @@ void draw_button_btop(int y, int x, int w, const char *text, bool active)
 void draw_server_table(void)
 {
 	if (scan_in_progress) return;
-
 	int start_y = target_row_start + 2;
 
 	pthread_mutex_lock(&list_mutex);
+	int safe_server_count = server_count;
+
+	if (safe_server_count > MAX_SERVERS)
+		safe_server_count = MAX_SERVERS;
 
 	attron(COLOR_PAIR(CP_DIM));
-	mvprintw(start_y, target_cols_start + 2, "   %-6s %-20s %-8s %-10s ", "ID", "IP ADDRESS", "PORT", "STATUS");
+	mvprintw(start_y, target_cols_start + 2, "   %-6s %-20s %-8s %-10s ", 
+		"ID", "IP ADDRESS", "PORT", "STATUS");
+
 	attroff(COLOR_PAIR(CP_DIM));
+	mvhline(start_y + 1, target_cols_start + 1, ACS_HLINE, 
+		target_cols_end - target_cols_start - 2);
 
-	mvhline(start_y + 1, target_cols_start + 1, ACS_HLINE, target_cols_end - target_cols_start - 2);
-
-	for (int i = 0; i < server_count; i++) {
+	for (int i = 0; i < safe_server_count; i++)
+	{
 		int row_y = start_y + 2 + i;
 		if (row_y >= target_row_end - 1) break;
 
-		bool hover = (event.y == row_y && event.x > target_cols_start && event.x < target_cols_end);
+		bool hover = (event.y == row_y && event.x > target_cols_start 
+			&& event.x < target_cols_end);
 
-		if (hover) {
+		if (hover)
+		{
 			attron(COLOR_PAIR(CP_INVERT));
 			mvhline(row_y, target_cols_start + 1, ' ', target_cols_end - target_cols_start - 2);
 			mvprintw(row_y, target_cols_start + 2, " > %04d   ", server_list[i].server_id);
 			printw("%-20s", server_list[i].ip);
 			printw(" %-8d %-10s ", server_list[i].port, "ONLINE");
 			attroff(COLOR_PAIR(CP_INVERT));
-		} else {
+		}
+		else
+		{
 			attron(COLOR_PAIR(CP_DEFAULT));
-			if (i % 2 != 0) attron(A_DIM);
+			if (i % 2 != 0)
+				attron(A_DIM);
 			mvprintw(row_y, target_cols_start + 2, "   %04d   ", server_list[i].server_id);
 			printw("%-20s", server_list[i].ip);
 			printw(" %-8d %-10s ", server_list[i].port, "ONLINE");
-			if (i % 2 != 0) attroff(A_DIM);
+			if (i % 2 != 0)
+				attroff(A_DIM);
 			attroff(COLOR_PAIR(CP_DEFAULT));
 		}
 	}
+	
 	pthread_mutex_unlock(&list_mutex);
 }
 
