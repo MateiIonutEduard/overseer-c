@@ -150,3 +150,84 @@ int core_upload_file_atomic(const char* ip, int port, safe_buffer_t* path_buf, p
 	free(path_copy);
 	return result;
 }
+
+int core_init_safe_buffer(safe_buffer_t* buf, size_t initial_capacity)
+{
+	if (!buf) return -1;
+	memset(buf, 0, sizeof(safe_buffer_t));
+
+	if (pthread_mutex_init(&buf->lock, NULL) != 0)
+		return -1;
+
+	if (initial_capacity > 0)
+	{
+		buf->data = malloc(initial_capacity);
+
+		if (!buf->data)
+		{
+			pthread_mutex_destroy(&buf->lock);
+			return -1;
+		}
+
+		buf->capacity = initial_capacity;
+	}
+
+	return 0;
+}
+
+int core_set_safe_buffer(safe_buffer_t* buf, const char* data, size_t length)
+{
+	if (!buf || !data) return -1;
+	pthread_mutex_lock(&buf->lock);
+
+	if (buf->capacity < length + 1)
+	{
+		char *new_data = (char*)realloc(buf->data, length + 1);
+
+		if (!new_data)
+		{
+			pthread_mutex_unlock(&buf->lock);
+			return -1;
+		}
+
+		buf->data = new_data;
+		buf->capacity = length + 1;
+	}
+
+	memcpy(buf->data, data, length);
+	buf->data[length] = '\0';
+
+	buf->length = length;
+	pthread_mutex_unlock(&buf->lock);
+	return 0;
+}
+
+void core_clear_safe_buffer(safe_buffer_t* buf)
+{
+	if (!buf) return;
+	pthread_mutex_lock(&buf->lock);
+
+	if (buf->data)
+		memset(buf->data, 0, buf->capacity);
+
+	buf->length = 0;
+	pthread_mutex_unlock(&buf->lock);
+}
+
+void core_destroy_safe_buffer(safe_buffer_t* buf)
+{
+	if (!buf) return;
+	pthread_mutex_lock(&buf->lock);
+
+	if (buf->data)
+	{
+		free(buf->data);
+		buf->data = NULL;
+	}
+
+	buf->capacity = 0;
+	buf->length = 0;
+
+	pthread_mutex_unlock(&buf->lock);
+	pthread_mutex_destroy(&buf->lock);
+}
