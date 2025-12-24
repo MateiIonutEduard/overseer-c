@@ -231,3 +231,27 @@ void core_destroy_safe_buffer(safe_buffer_t* buf)
 	pthread_mutex_unlock(&buf->lock);
 	pthread_mutex_destroy(&buf->lock);
 }
+
+int core_validate_server_state(const char* ip, int port, bool* is_valid)
+{
+	if (!ip || !is_valid)
+		return -1;
+
+	pthread_mutex_lock(&list_mutex);
+	bool found = false;
+
+	for (int i = 0; i < server_count; i++)
+	{
+		if (strcmp(server_list[i].ip, ip) == 0 && server_list[i].port == port)
+		{
+			found = true;
+			break;
+		}
+	}
+
+	bool is_connected = connected_to_server;
+	pthread_mutex_unlock(&list_mutex);
+
+	*is_valid = (found && is_connected);
+	return 0;
+}

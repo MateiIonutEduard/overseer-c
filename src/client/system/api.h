@@ -25,4 +25,5 @@ int core_set_safe_buffer(safe_buffer_t* buf, const char *data, size_t length);
 
 void core_clear_safe_buffer(safe_buffer_t* buf);
 void core_destroy_safe_buffer(safe_buffer_t* buf);
+int core_validate_server_state(const char* ip, int port, bool* is_valid);
 #endif
