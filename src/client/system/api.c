@@ -53,6 +53,12 @@ int core_upload_file(const char *ip, int port, const char *path, progress_cb_t c
 	return send_file_to_server(ip, port, path, cb);
 }
 
+int core_update_stats(const char *ip, int port, float *cpu, size_t *mem_used, size_t *mem_total)
+{
+	if (!ip || !cpu || !mem_used || !mem_total) return -1;
+	return get_server_stats(ip, port, cpu, mem_used, mem_total);
+}
+
 void core_start_scan(pthread_t *thread)
 {
 	pthread_mutex_lock(&list_mutex);

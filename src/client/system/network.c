@@ -76,6 +76,44 @@ int send_command_with_response(const char *ip, int port, const char *cmd, char *
 	return 0;
 }
 
+int get_server_stats(const char *ip, int port, float *cpu, size_t *mem_used, size_t *mem_total)
+{
+	int sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock < 0) return -1;
+
+	struct sockaddr_in serv_addr;
+	memset(&serv_addr, 0, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(port);
+	inet_pton(AF_INET, ip, &serv_addr.sin_addr);
+
+	struct timeval timeout = {1, 0};
+	setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
+	if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+		close(sock);
+		return -1;
+	}
+
+	if (send(sock, "STATS", 5, 0) < 0) {
+		close(sock);
+		return -1;
+	}
+
+	char recv_buf[128] = {0};
+	if (recv(sock, recv_buf, sizeof(recv_buf) - 1, 0) > 0) {
+		if (strncmp(recv_buf, "STATS", 5) == 0) {
+			sscanf(recv_buf, "STATS %f %zu %zu", cpu, mem_used, mem_total);
+			close(sock);
+			return 0;
+		}
+	}
+
+	close(sock);
+	return -1;
+}
+
 int send_file_to_server(const char *ip, int port, const char *filepath, progress_cb_t callback)
 {
 	FILE *fp = fopen(filepath, "rb");

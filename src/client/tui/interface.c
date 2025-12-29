@@ -109,7 +109,14 @@ void draw_background(void)
 
 	int wave = ui_render_cycle % 3;
 	const char *dots = (wave == 0) ? ".  " : (wave == 1) ? " . " : "  .";
-	mvprintw(rows - 1, 2, " CPU: 1%% %s MEM: 124MB %s NET: IDLE ", dots, dots);
+	
+	if (connected_to_server) {
+		mvprintw(rows - 1, 2, " CPU: %.0f%% %s MEM: %zu/%zuMB %s NET: ACTIVE ",
+			 current_server.cpu_usage, dots,
+			 current_server.mem_used, current_server.mem_total, dots);
+	} else {
+		mvprintw(rows - 1, 2, " CPU: --- %s MEM: --- %s NET: IDLE ", dots, dots);
+	}
 	attroff(COLOR_PAIR(CP_FRAME) | A_DIM);
 }
 

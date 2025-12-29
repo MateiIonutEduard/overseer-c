@@ -17,6 +17,7 @@ int core_connect(const char *ip, int port);
 int core_send_message(const char *ip, int port, const char *payload);
 int core_execute_command(const char *ip, int port, const char *cmd, char *out_buf, size_t buf_size);
 int core_upload_file(const char *ip, int port, const char *path, progress_cb_t cb);
+int core_update_stats(const char *ip, int port, float *cpu, size_t *mem_used, size_t *mem_total);
 void core_start_scan(pthread_t *thread);
 
 int core_init_safe_buffer(safe_buffer_t *buf, size_t initial_capacity);

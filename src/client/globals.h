@@ -16,6 +16,9 @@ struct ServerInfo {
 	char ip[16];
 	int port;
 	int server_id;
+	float cpu_usage;
+	size_t mem_used;
+	size_t mem_total;
 };
 
 extern struct ServerInfo server_list[MAX_SERVERS];

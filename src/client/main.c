@@ -23,6 +23,7 @@ int scan_render_cycle = 0;
 int ui_render_cycle = 0;
 struct timeval scan_last_time;
 struct timeval ui_last_time;
+struct timeval stats_last_time;
 atomic_bool beacon_thread_active = false;
 
 int rows, cols;
@@ -49,6 +50,7 @@ int main(void)
 	pthread_t beacon_thread = 0;
 	gettimeofday(&scan_last_time, NULL);
 	gettimeofday(&ui_last_time, NULL);
+	gettimeofday(&stats_last_time, NULL);
 
 	atomic_store(&beacon_thread_active, false);
 
@@ -114,9 +116,8 @@ int main(void)
 				draw_btop_box(target_row_start + 2, chart_x, 10, 30, "TELEMETRY");
 				
 				attron(COLOR_PAIR(CP_DIM));
-				for(int i=0; i<6; i++) {
-					mvprintw(target_row_start+3+i, chart_x+1, " . . . . . . . . . . . . . ");
-				}
+				mvprintw(target_row_start+4, chart_x+2, "CPU: %.1f%%", current_server.cpu_usage);
+				mvprintw(target_row_start+6, chart_x+2, "MEM: %zu / %zu MB", current_server.mem_used, current_server.mem_total);
 				attroff(COLOR_PAIR(CP_DIM));
 
 				draw_button_btop(target_row_start + 8, target_cols_start + 4, 20, "SEND PAYLOAD", true);
@@ -133,6 +134,17 @@ int main(void)
 		if (ui_ms > 80) {
 			ui_render_cycle++;
 			ui_last_time = now;
+		}
+
+		if (connected_to_server) {
+			long stats_ms = (now.tv_sec - stats_last_time.tv_sec) * 1000 + (now.tv_usec - stats_last_time.tv_usec) / 1000;
+			if (stats_ms > 1000) {
+				core_update_stats(current_server.ip, current_server.port, 
+						  &current_server.cpu_usage, 
+						  &current_server.mem_used, 
+						  &current_server.mem_total);
+				stats_last_time = now;
+			}
 		}
 
 		if (scan_in_progress) {
